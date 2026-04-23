@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -35,23 +35,16 @@ function GoogleAnalytics() {
 }
 
 function PageTracker() {
+  const [location] = useLocation();
+
   useEffect(() => {
-    const handleLocationChange = () => {
-      if (window.gtag && import.meta.env.VITE_GA_MEASUREMENT_ID) {
-        window.gtag('event', 'page_view', {
-          page_path: window.location.pathname,
-        });
-      }
-    };
-    
-    // Call initially
-    handleLocationChange();
-    
-    // Listen for pushState/popState
-    window.addEventListener("popstate", handleLocationChange);
-    return () => window.removeEventListener("popstate", handleLocationChange);
-  }, []);
-  
+    if (window.gtag && import.meta.env.VITE_GA_MEASUREMENT_ID) {
+      window.gtag("event", "page_view", {
+        page_path: location,
+      });
+    }
+  }, [location]);
+
   return null;
 }
 

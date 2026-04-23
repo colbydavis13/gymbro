@@ -34,6 +34,5 @@ externalPort = 3000
 [userenv]
 
 [userenv.shared]
-VAPID_PUBLIC_KEY = "BMgFXwB60dgbs20TQXTocKkJ2wBGS1bDOI-2rQhzIbf7CUYBNmXTmfUTFLtN_jfPYNILvzVwan6lUfX056Ptmz4"
-VAPID_PRIVATE_KEY = "_VxVsFRXN20OnRsDB1j6mkXIjs9JFCNE5FLtwIFNd3k"
+VAPID_PUBLIC_KEY = "BNmrtkYrJMzV_d5TQObppcpmTu9Spv5c4hoG92LIQQo9rzMkwY__nn_Zl-YiGOVOJJ9_gEUnCVcejUwpAp7BY4U"
 VAPID_EMAIL = "mailto:gymbro@example.com"

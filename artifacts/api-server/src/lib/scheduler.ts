@@ -14,6 +14,8 @@ function buildEmailHtml(dailyTime: string): string {
     return `${hour12}:${m.toString().padStart(2, "0")} ${period}`;
   })();
 
+  const appUrl = process.env.GYM_BRO_URL || "https://gym-bro.replit.app";
+
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -27,7 +29,10 @@ function buildEmailHtml(dailyTime: string): string {
       <p style="color: #4B5563; margin: 0;">Your gym time is scheduled for <strong>${timeDisplay}</strong>.</p>
       <p style="color: #4B5563; margin: 8px 0 0;">Will you go to the gym today?</p>
     </div>
-    <p style="color: #7BC47F; font-weight: 600; margin: 0 0 8px;">Open Gym Bro to record your decision.</p>
+    <a href="${appUrl}"
+       style="display: block; background: #7BC47F; color: #fff; font-weight: 700; font-size: 16px; text-align: center; padding: 14px 0; border-radius: 999px; text-decoration: none; margin-bottom: 16px;">
+      Open Gym Bro and record your decision
+    </a>
     <p style="color: #9CA3AF; font-size: 12px; margin: 24px 0 0;">You're receiving this because you set up a daily reminder in Gym Bro.</p>
   </div>
 </body>
