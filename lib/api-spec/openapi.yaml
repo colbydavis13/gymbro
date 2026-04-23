@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Gym Bro API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: schedule
+    description: Gym schedule management
+  - name: attendance
+    description: Attendance tracking
+  - name: notifications
+    description: Push notification subscriptions
 paths:
   /healthz:
     get:
@@ -24,6 +30,135 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /schedule:
+    get:
+      operationId: getSchedule
+      tags: [schedule]
+      summary: Get current gym schedule
+      description: Returns the user's stored gym schedule
+      responses:
+        "200":
+          description: Current schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+    put:
+      operationId: updateSchedule
+      tags: [schedule]
+      summary: Update gym schedule
+      description: Set the user's daily gym time and preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScheduleBody"
+      responses:
+        "200":
+          description: Updated schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+
+  /attendance/today:
+    get:
+      operationId: getTodayAttendance
+      tags: [attendance]
+      summary: Get today's attendance decision
+      description: Returns today's attendance record if it exists
+      responses:
+        "200":
+          description: Today's attendance record or null if not yet decided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TodayAttendanceResponse"
+
+  /attendance:
+    post:
+      operationId: recordAttendance
+      tags: [attendance]
+      summary: Record today's attendance decision
+      description: Record whether the user attended or skipped the gym today
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordAttendanceBody"
+      responses:
+        "201":
+          description: Attendance recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRecord"
+
+  /attendance/weekly:
+    get:
+      operationId: getWeeklyAttendance
+      tags: [attendance]
+      summary: Get this week's attendance summary
+      description: Returns attendance records for the current week plus a summary
+      responses:
+        "200":
+          description: Weekly attendance summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyAttendanceSummary"
+
+  /attendance/streak:
+    get:
+      operationId: getAttendanceStreak
+      tags: [attendance]
+      summary: Get current attendance streak
+      description: Returns the current streak and total attendance count
+      responses:
+        "200":
+          description: Streak information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreakInfo"
+
+  /notifications/subscribe:
+    post:
+      operationId: subscribeNotifications
+      tags: [notifications]
+      summary: Subscribe to push notifications
+      description: Store a browser push notification subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushSubscriptionBody"
+      responses:
+        "200":
+          description: Subscription stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscribeResponse"
+
+  /notifications/vapid-public-key:
+    get:
+      operationId: getVapidPublicKey
+      tags: [notifications]
+      summary: Get VAPID public key
+      description: Returns the VAPID public key for push notification setup
+      responses:
+        "200":
+          description: VAPID public key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VapidKeyResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +169,169 @@ components:
       required:
         - status
 
+    Schedule:
+      type: object
+      properties:
+        id:
+          type: integer
+        dailyTime:
+          type: string
+          description: "Daily gym time in HH:MM 24h format"
+        targetEmail:
+          type: ["string", "null"]
+        weeklyGoal:
+          type: integer
+          description: "Target gym days per week"
+        updatedAt:
+          type: string
+      required:
+        - id
+        - dailyTime
+        - weeklyGoal
+        - targetEmail
+        - updatedAt
+
+    UpdateScheduleBody:
+      type: object
+      properties:
+        dailyTime:
+          type: string
+          description: "Daily gym time in HH:MM 24h format"
+        targetEmail:
+          type: ["string", "null"]
+        weeklyGoal:
+          type: integer
+      required:
+        - dailyTime
+        - weeklyGoal
+
+    AttendanceRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        date:
+          type: string
+          description: "ISO date string YYYY-MM-DD"
+        choice:
+          type: string
+          enum: [attend, skip]
+        hesitationSeconds:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - date
+        - choice
+        - hesitationSeconds
+        - createdAt
+
+    TodayAttendanceResponse:
+      type: object
+      properties:
+        record:
+          oneOf:
+            - $ref: "#/components/schemas/AttendanceRecord"
+            - type: "null"
+      required:
+        - record
+
+    RecordAttendanceBody:
+      type: object
+      properties:
+        choice:
+          type: string
+          enum: [attend, skip]
+        hesitationSeconds:
+          type: ["integer", "null"]
+      required:
+        - choice
+
+    DayRecord:
+      type: object
+      properties:
+        date:
+          type: string
+        dayName:
+          type: string
+        choice:
+          type: ["string", "null"]
+          enum: [attend, skip, null]
+      required:
+        - date
+        - dayName
+        - choice
+
+    WeeklyAttendanceSummary:
+      type: object
+      properties:
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/DayRecord"
+        attendCount:
+          type: integer
+        skipCount:
+          type: integer
+        weeklyGoal:
+          type: integer
+        onTrack:
+          type: boolean
+      required:
+        - days
+        - attendCount
+        - skipCount
+        - weeklyGoal
+        - onTrack
+
+    StreakInfo:
+      type: object
+      properties:
+        currentStreak:
+          type: integer
+          description: "Current consecutive attendance days"
+        totalAttended:
+          type: integer
+          description: "All-time total attended days"
+        totalRecorded:
+          type: integer
+          description: "All-time total days recorded"
+        lastAttended:
+          type: ["string", "null"]
+          description: "ISO date of last attended day"
+      required:
+        - currentStreak
+        - totalAttended
+        - totalRecorded
+        - lastAttended
+
+    PushSubscriptionBody:
+      type: object
+      properties:
+        endpoint:
+          type: string
+        p256dh:
+          type: string
+        auth:
+          type: string
+      required:
+        - endpoint
+        - p256dh
+        - auth
+
+    SubscribeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+
+    VapidKeyResponse:
+      type: object
+      properties:
+        publicKey:
+          type: string
+      required:
+        - publicKey

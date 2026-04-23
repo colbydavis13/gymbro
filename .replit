@@ -26,3 +26,14 @@ externalPort = 8080
 [[ports]]
 localPort = 8081
 externalPort = 80
+
+[[ports]]
+localPort = 18396
+externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+VAPID_PUBLIC_KEY = "BMgFXwB60dgbs20TQXTocKkJ2wBGS1bDOI-2rQhzIbf7CUYBNmXTmfUTFLtN_jfPYNILvzVwan6lUfX056Ptmz4"
+VAPID_PRIVATE_KEY = "_VxVsFRXN20OnRsDB1j6mkXIjs9JFCNE5FLtwIFNd3k"
+VAPID_EMAIL = "mailto:gymbro@example.com"
