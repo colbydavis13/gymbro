@@ -101,23 +101,11 @@ In GitHub, add another repository secret:
 | `AZURE_APP_SERVICE_NAME` | `gym-bro-api` (your App Service name) |
 | `AZURE_APP_SERVICE_PUBLISH_PROFILE` | (paste the full contents of the .PublishSettings file) |
 
-### Step 4: Update the Static Web Apps proxy
+### Step 4: Configure the API URL
 
-In `artifacts/gym-bro/staticwebapp.config.json`, the `/api/*` route proxies to your backend. Azure Static Web Apps does not support external proxy routing out of the box on the Free tier. Instead, set `VITE_API_BASE_URL` as a GitHub secret (Part 1, Step 2) to the full API URL so the frontend can call your App Service directly.
+The file `artifacts/gym-bro/public/staticwebapp.config.json` configures SPA routing so all page navigations correctly serve `index.html`. Because Azure Static Web Apps Free tier cannot reverse-proxy to an external backend, API calls go directly from the browser to your App Service.
 
-Update `artifacts/gym-bro/src/App.tsx` to call `setBaseUrl` with the API URL:
-
-```tsx
-import { setBaseUrl } from "@workspace/api-client-react";
-
-// At the top of App() component or in main.tsx:
-setBaseUrl(import.meta.env.VITE_API_BASE_URL ?? "");
-```
-
-Then in your Vite config or `.env.production` file:
-```
-VITE_API_BASE_URL=https://gym-bro-api.azurewebsites.net
-```
+`artifacts/gym-bro/src/App.tsx` already reads `VITE_API_BASE_URL` and uses it to route API calls to the correct server. Just set the GitHub secret (Part 1, Step 2) to your App Service URL (e.g. `https://gym-bro-api.azurewebsites.net`) and the build handles the rest.
 
 ### Step 5: Enable CORS on the API
 
