@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
 import webpush from "web-push";
-import { db, pushSubscriptionsTable } from "@workspace/db";
+import { supabase } from "@workspace/db";
 import { SubscribeNotificationsBody, SubscribeNotificationsResponse, GetVapidPublicKeyResponse } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
 
@@ -33,19 +32,22 @@ router.post("/notifications/subscribe", async (req, res): Promise<void> => {
 
   const { endpoint, p256dh, auth } = parsed.data;
 
-  const existing = await db
-    .select()
-    .from(pushSubscriptionsTable)
-    .where(eq(pushSubscriptionsTable.endpoint, endpoint))
-    .limit(1);
+  const { data: existing } = await supabase
+    .from("push_subscriptions")
+    .select("id")
+    .eq("endpoint", endpoint)
+    .limit(1)
+    .maybeSingle();
 
-  if (existing.length === 0) {
-    await db.insert(pushSubscriptionsTable).values({ endpoint, p256dh, auth });
+  if (!existing) {
+    await supabase
+      .from("push_subscriptions")
+      .insert({ endpoint, p256dh, auth });
   } else {
-    await db
-      .update(pushSubscriptionsTable)
-      .set({ p256dh, auth })
-      .where(eq(pushSubscriptionsTable.endpoint, endpoint));
+    await supabase
+      .from("push_subscriptions")
+      .update({ p256dh, auth })
+      .eq("endpoint", endpoint);
   }
 
   req.log.info("Push subscription stored");
@@ -61,10 +63,14 @@ export async function sendPushNotificationToAll(payload: {
     return;
   }
 
-  const subscriptions = await db.select().from(pushSubscriptionsTable);
-  logger.info({ count: subscriptions.length }, "Sending push notifications");
+  const { data: subscriptions } = await supabase
+    .from("push_subscriptions")
+    .select("*");
 
-  for (const sub of subscriptions) {
+  const subs = subscriptions ?? [];
+  logger.info({ count: subs.length }, "Sending push notifications");
+
+  for (const sub of subs) {
     try {
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
@@ -78,9 +84,10 @@ export async function sendPushNotificationToAll(payload: {
         (err as { statusCode: number }).statusCode === 410
       ) {
         logger.info({ endpoint: sub.endpoint }, "Removing expired push subscription");
-        await db
-          .delete(pushSubscriptionsTable)
-          .where(eq(pushSubscriptionsTable.endpoint, sub.endpoint));
+        await supabase
+          .from("push_subscriptions")
+          .delete()
+          .eq("endpoint", sub.endpoint);
       } else {
         logger.error({ err }, "Failed to send push notification");
       }

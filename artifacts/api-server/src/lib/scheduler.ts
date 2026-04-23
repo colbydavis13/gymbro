@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { Resend } from "resend";
-import { db, scheduleTable } from "@workspace/db";
+import { supabase } from "@workspace/db";
 import { logger } from "./logger";
 import { sendPushNotificationToAll } from "../routes/notifications";
 
@@ -50,34 +50,39 @@ export async function startScheduler(): Promise<void> {
 
   async function checkAndSendReminders(): Promise<void> {
     try {
-      const [schedule] = await db.select().from(scheduleTable).limit(1);
+      const { data: schedule } = await supabase
+        .from("schedule")
+        .select("*")
+        .limit(1)
+        .maybeSingle();
+
       if (!schedule) return;
 
       const now = new Date();
-      const [scheduledHour, scheduledMin] = schedule.dailyTime.split(":").map(Number);
+      const [scheduledHour, scheduledMin] = schedule.daily_time.split(":").map(Number);
       const currentHour = now.getHours();
       const currentMin = now.getMinutes();
 
       if (currentHour !== scheduledHour || currentMin !== scheduledMin) return;
 
-      logger.info({ dailyTime: schedule.dailyTime }, "Sending daily gym reminders");
+      logger.info({ dailyTime: schedule.daily_time }, "Sending daily gym reminders");
 
       await sendPushNotificationToAll({
         title: "Gym Bro",
         body: "Time to decide — will you go to the gym today?",
       });
 
-      if (resend && schedule.targetEmail) {
+      if (resend && schedule.target_email) {
         const { error } = await resend.emails.send({
           from: "Gym Bro <noreply@resend.dev>",
-          to: [schedule.targetEmail],
+          to: [schedule.target_email],
           subject: "Your daily gym reminder",
-          html: buildEmailHtml(schedule.dailyTime),
+          html: buildEmailHtml(schedule.daily_time),
         });
         if (error) {
           logger.error({ error }, "Failed to send daily email");
         } else {
-          logger.info({ to: schedule.targetEmail }, "Daily reminder email sent");
+          logger.info({ to: schedule.target_email }, "Daily reminder email sent");
         }
       }
     } catch (err) {

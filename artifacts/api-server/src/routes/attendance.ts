@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { db, attendanceTable, scheduleTable } from "@workspace/db";
+import { supabase } from "@workspace/db";
 import {
   RecordAttendanceBody,
   GetTodayAttendanceResponse,
@@ -32,13 +31,21 @@ const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frid
 router.get("/attendance/today", async (req, res): Promise<void> => {
   req.log.info("Fetching today's attendance");
   const today = getTodayDate();
-  const [record] = await db
-    .select()
-    .from(attendanceTable)
-    .where(eq(attendanceTable.date, today))
-    .limit(1);
 
-  if (!record) {
+  const { data, error } = await supabase
+    .from("attendance")
+    .select("*")
+    .eq("date", today)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    req.log.error({ error }, "Failed to fetch today's attendance");
+    res.status(500).json({ error: "Failed to fetch attendance" });
+    return;
+  }
+
+  if (!data) {
     res.json(GetTodayAttendanceResponse.parse({ record: null }));
     return;
   }
@@ -46,11 +53,11 @@ router.get("/attendance/today", async (req, res): Promise<void> => {
   res.json(
     GetTodayAttendanceResponse.parse({
       record: {
-        id: record.id,
-        date: record.date,
-        choice: record.choice,
-        hesitationSeconds: record.hesitationSeconds ?? null,
-        createdAt: record.createdAt.toISOString(),
+        id: data.id,
+        date: data.date,
+        choice: data.choice,
+        hesitationSeconds: data.hesitation_seconds ?? null,
+        createdAt: data.created_at,
       },
     }),
   );
@@ -65,32 +72,41 @@ router.post("/attendance", async (req, res): Promise<void> => {
   }
 
   const today = getTodayDate();
-  const [existing] = await db
-    .select()
-    .from(attendanceTable)
-    .where(eq(attendanceTable.date, today))
-    .limit(1);
+
+  const { data: existing } = await supabase
+    .from("attendance")
+    .select("id")
+    .eq("date", today)
+    .limit(1)
+    .maybeSingle();
 
   if (existing) {
     res.status(409).json({ error: "Attendance already recorded for today" });
     return;
   }
 
-  const [record] = await db
-    .insert(attendanceTable)
-    .values({
+  const { data: record, error } = await supabase
+    .from("attendance")
+    .insert({
       date: today,
       choice: parsed.data.choice,
-      hesitationSeconds: parsed.data.hesitationSeconds ?? null,
+      hesitation_seconds: parsed.data.hesitationSeconds ?? null,
     })
-    .returning();
+    .select()
+    .single();
+
+  if (error || !record) {
+    req.log.error({ error }, "Failed to record attendance");
+    res.status(500).json({ error: "Failed to record attendance" });
+    return;
+  }
 
   res.status(201).json({
     id: record.id,
     date: record.date,
     choice: record.choice,
-    hesitationSeconds: record.hesitationSeconds ?? null,
-    createdAt: record.createdAt.toISOString(),
+    hesitationSeconds: record.hesitation_seconds ?? null,
+    createdAt: record.created_at,
   });
 });
 
@@ -98,15 +114,28 @@ router.get("/attendance/weekly", async (req, res): Promise<void> => {
   req.log.info("Fetching weekly attendance");
   const { start, end } = getWeekBounds();
 
-  const records = await db
-    .select()
-    .from(attendanceTable)
-    .where(and(gte(attendanceTable.date, start), lte(attendanceTable.date, end)));
+  const { data: records, error } = await supabase
+    .from("attendance")
+    .select("*")
+    .gte("date", start)
+    .lte("date", end);
 
-  const recordMap = new Map(records.map((r) => [r.date, r]));
+  if (error) {
+    req.log.error({ error }, "Failed to fetch weekly attendance");
+    res.status(500).json({ error: "Failed to fetch attendance" });
+    return;
+  }
 
-  const [schedule] = await db.select().from(scheduleTable).limit(1);
-  const weeklyGoal = schedule?.weeklyGoal ?? 3;
+  const safeRecords = records ?? [];
+  const recordMap = new Map(safeRecords.map((r) => [r.date, r]));
+
+  const { data: scheduleData } = await supabase
+    .from("schedule")
+    .select("weekly_goal")
+    .limit(1)
+    .maybeSingle();
+
+  const weeklyGoal = scheduleData?.weekly_goal ?? 3;
 
   const days = [];
   const startDate = new Date(start + "T00:00:00");
@@ -122,8 +151,8 @@ router.get("/attendance/weekly", async (req, res): Promise<void> => {
     });
   }
 
-  const attendCount = records.filter((r) => r.choice === "attend").length;
-  const skipCount = records.filter((r) => r.choice === "skip").length;
+  const attendCount = safeRecords.filter((r) => r.choice === "attend").length;
+  const skipCount = safeRecords.filter((r) => r.choice === "skip").length;
   const onTrack = attendCount >= weeklyGoal;
 
   res.json(
@@ -139,15 +168,23 @@ router.get("/attendance/weekly", async (req, res): Promise<void> => {
 
 router.get("/attendance/streak", async (req, res): Promise<void> => {
   req.log.info("Fetching attendance streak");
-  const allRecords = await db
-    .select()
-    .from(attendanceTable)
-    .orderBy(desc(attendanceTable.date));
 
-  const totalAttended = allRecords.filter((r) => r.choice === "attend").length;
-  const totalRecorded = allRecords.length;
+  const { data: allRecords, error } = await supabase
+    .from("attendance")
+    .select("*")
+    .order("date", { ascending: false });
 
-  const attendRecords = allRecords.filter((r) => r.choice === "attend");
+  if (error) {
+    req.log.error({ error }, "Failed to fetch streak data");
+    res.status(500).json({ error: "Failed to fetch streak" });
+    return;
+  }
+
+  const safeRecords = allRecords ?? [];
+  const totalAttended = safeRecords.filter((r) => r.choice === "attend").length;
+  const totalRecorded = safeRecords.length;
+
+  const attendRecords = safeRecords.filter((r) => r.choice === "attend");
   const lastAttended = attendRecords.length > 0 ? attendRecords[0].date : null;
 
   let currentStreak = 0;
