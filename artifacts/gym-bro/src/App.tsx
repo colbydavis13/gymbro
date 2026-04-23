@@ -7,6 +7,11 @@ import Attendance from "@/pages/attendance";
 import Schedule from "@/pages/schedule";
 import Settings from "@/pages/settings";
 import { useEffect } from "react";
+import { setBaseUrl } from "@workspace/api-client-react";
+
+if (import.meta.env.VITE_API_BASE_URL) {
+  setBaseUrl(import.meta.env.VITE_API_BASE_URL);
+}
 
 const queryClient = new QueryClient();
 
