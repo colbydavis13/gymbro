@@ -49,9 +49,18 @@ export default function Attendance() {
 
       if (permission === "granted" && vapidKeyRes?.publicKey) {
         const registration = await navigator.serviceWorker.ready;
+
+        // Convert base64url VAPID public key to Uint8Array as required by browsers
+        const base64 = vapidKeyRes.publicKey.replace(/-/g, "+").replace(/_/g, "/");
+        const binary = atob(base64);
+        const applicationServerKey = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          applicationServerKey[i] = binary.charCodeAt(i);
+        }
+
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: vapidKeyRes.publicKey
+          applicationServerKey
         });
 
         const subObj = JSON.parse(JSON.stringify(subscription));
