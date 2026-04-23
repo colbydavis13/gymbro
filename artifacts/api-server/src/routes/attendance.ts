@@ -9,20 +9,26 @@ import {
 
 const router: IRouter = Router();
 
+function localDateString(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function getTodayDate(): string {
-  return new Date().toISOString().split("T")[0];
+  return localDateString();
 }
 
 function getWeekBounds(): { start: string; end: string } {
   const today = new Date();
-  const dayOfWeek = today.getDay();
   const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - dayOfWeek);
+  startOfWeek.setDate(today.getDate() - today.getDay());
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(startOfWeek.getDate() + 6);
   return {
-    start: startOfWeek.toISOString().split("T")[0],
-    end: endOfWeek.toISOString().split("T")[0],
+    start: localDateString(startOfWeek),
+    end: localDateString(endOfWeek),
   };
 }
 
@@ -142,7 +148,7 @@ router.get("/attendance/weekly", async (req, res): Promise<void> => {
   for (let i = 0; i < 7; i++) {
     const d = new Date(startDate);
     d.setDate(startDate.getDate() + i);
-    const dateStr = d.toISOString().split("T")[0];
+    const dateStr = localDateString(d);
     const rec = recordMap.get(dateStr);
     days.push({
       date: dateStr,
