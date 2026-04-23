@@ -1,0 +1,100 @@
+Page template is live on Azure
+
+Accomplished
+When I visit your link, your website opens. It is running on Azure, not your local computer.
+5 pts
+
+No Marks
+Your website does not open. There is an error or no response when I click the link.
+0 pts
+/5 pts
+Custom domain is linked to page template
+
+Accomplished
+When I click on your custom domain (i.e. https://businessanalytics.me) it opens your website.
+5 pts
+
+No Marks
+You custom domain is not linked to your website. When I click it there is an error, no response, or it takes me to a different site.
+0 pts
+/5 pts
+Page(s) pass HTML5 validation
+
+Accomplished
+Your pages template passes HTML5 validation using https://validator.w3.org/. Validation is shown in a screenshot and pages pass validation when I enter your domain directly into the validator.
+5 pts
+
+Developing
+Your screenshot shows your template successfully passed validation at one time, but when I enter your domain into the validator it now fails.
+2 pts
+
+No Marks
+Your domain does not pass validation when I enter it into validator. There is no screenshot showing it ever passed validation.
+0 pts
+/5 pts
+Page(s) pass CSS3 validation
+
+Accomplished
+Your page template passes CSS3 validation using https://jigsaw.w3.org/css-validator/. Validation is shown in a screenshot and css passes validation when I enter your domain directly into the validator.
+5 pts
+
+Developing
+Your screenshot shows your template successfully passed validation at one time, but when I enter your domain into the validator it now fails.
+2 pts
+
+No Marks
+Your domain does not pass validation when I enter it into validator. There is no screenshot showing it ever passed validation.
+0 pts
+/5 pts
+Page(s) pass WCAG 2.1, level AA validation
+
+Accomplished
+Your page(s) pass WCAG2.1, level AA validation. Testing occurs by visiting your web page(s) and using the WAVE tool. Validation is shown in a screenshot and your page(s) pass accessibility validation when I check your live pages with the WAVE validator.
+5 pts
+
+Developing
+Your screenshot shows your pages successfully passed accessibility validation at one time, but when I check your live pages they now fail.
+2 pts
+
+No Marks
+Your web page(s) do not pass WCAG2.1, level AA validation when I visit your site and check using the WAVE tool. There is no screenshot showing your pages ever passed validation.
+0 pts
+/5 pts
+Google Analytics is connected to page(s)
+
+Accomplished
+Screenshot is present showing realtime users connected to your web site.
+5 pts
+
+Developing
+An attempt was made to connect Google Analytics, but no evidence it is working correctly.
+2 pts
+
+No Marks
+Screenshot is not present. There is no evidence Google Analytics is collecting details of visitors to your site.
+0 pts
+/5 pts
+Page template identifies student
+
+Accomplished
+When I visit your page, your name appears. I can identify the site as belonging to you.
+5 pts
+
+No Marks
+Unable to identify the website as yours based on details on the page(s).
+0 pts
+/5 pts
+Multiple commits in GitHub repository
+
+Accomplished
+GitHub contains multiple comments, on multiple branches, with useful commit messages.
+5 pts
+
+Developing
+Some commit messages. Only main branch is utilized. Commit messages are not descriptive about the changes to the code being committed.
+2 pts
+
+No Marks
+One or fewer commits.
+0 pts
+/5 pts
