@@ -36,3 +36,4 @@ externalPort = 3000
 [userenv.shared]
 VAPID_PUBLIC_KEY = "BNmrtkYrJMzV_d5TQObppcpmTu9Spv5c4hoG92LIQQo9rzMkwY__nn_Zl-YiGOVOJJ9_gEUnCVcejUwpAp7BY4U"
 VAPID_EMAIL = "mailto:gymbro@example.com"
+VITE_GA_MEASUREMENT_ID = "G-NEFQLYL8YJ"
