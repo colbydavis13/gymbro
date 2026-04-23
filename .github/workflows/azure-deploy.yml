@@ -34,7 +34,7 @@ jobs:
         working-directory: artifacts/gym-bro
         env:
           BASE_PATH: /
-          PORT: 3000
+          PORT: "3000"
           NODE_ENV: production
           VITE_GA_MEASUREMENT_ID: ${{ secrets.VITE_GA_MEASUREMENT_ID }}
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
@@ -75,13 +75,11 @@ jobs:
 
       - name: Package API for deployment
         run: |
-          mkdir -p deploy-api
-          cp -r artifacts/api-server/dist deploy-api/dist
-          cp artifacts/api-server/package.json deploy-api/package.json
-          cp pnpm-workspace.yaml deploy-api/pnpm-workspace.yaml
-          echo '{"name":"gym-bro-api","version":"1.0.0","scripts":{"start":"node --enable-source-maps ./dist/index.mjs"}}' > deploy-api/package.json
-          cd deploy-api && npm install --omit=dev --ignore-scripts 2>/dev/null || true
-          zip -r ../api-deploy.zip .
+          mkdir -p api-package
+          cp -r artifacts/api-server/dist api-package/dist
+          printf '{"name":"gym-bro-api","version":"1.0.0","private":true,"scripts":{"start":"node --enable-source-maps ./dist/index.mjs"}}' \
+            > api-package/package.json
+          cd api-package && zip -r ../api-deploy.zip .
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3

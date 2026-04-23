@@ -80,6 +80,7 @@ In the Azure portal, go to your App Service → **Settings** → **Environment v
 | `SUPABASE_URL` | `https://xxxx.supabase.co` | Yes — from Supabase project settings |
 | `SUPABASE_ANON_KEY` | `eyJ...` | Yes — from Supabase project API keys |
 | `RESEND_API_KEY` | `re_...` | Yes — from resend.com dashboard |
+| `TARGET_EMAIL` | `you@example.com` | Yes — email address to receive daily reminders |
 | `VAPID_PUBLIC_KEY` | `BF...` | Yes — your VAPID public key |
 | `VAPID_PRIVATE_KEY` | `...` | Yes — your VAPID private key (keep secret!) |
 | `NODE_ENV` | `production` | Yes |
@@ -168,12 +169,14 @@ Once deployed, check the following:
 | `SUPABASE_URL` | API server | Supabase project URL (e.g. `https://xxxx.supabase.co`) |
 | `SUPABASE_ANON_KEY` | API server | Supabase anonymous API key |
 | `RESEND_API_KEY` | API server | Resend API key for sending daily reminder emails |
+| `TARGET_EMAIL` | API server | Email address to receive daily reminder emails |
 | `VAPID_PUBLIC_KEY` | API server | VAPID public key for Web Push (base64url encoded) |
 | `VAPID_PRIVATE_KEY` | API server | VAPID private key for Web Push — **keep secret** |
 | `NODE_ENV` | API server | Set to `production` in Azure |
 | `PORT` | API server | HTTP port — Azure App Service uses `8080` |
-| `VITE_GA_MEASUREMENT_ID` | Frontend build | Google Analytics 4 Measurement ID |
-| `VITE_API_BASE_URL` | Frontend build | Full URL of the deployed API server |
+| `VITE_GA_MEASUREMENT_ID` | Frontend build (GitHub secret) | Google Analytics 4 Measurement ID |
+| `VITE_API_BASE_URL` | Frontend build (GitHub secret) | Full URL of the deployed API server |
+| `BASE_PATH` | Frontend build (set in CI) | Base path for the app — set to `/` automatically by the workflow |
 
 ---
 
