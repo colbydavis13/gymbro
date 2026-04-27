@@ -109,27 +109,40 @@ async function trySendNotification(
   throw lastErr;
 }
 
+export interface PushResult {
+  sent: number;
+  failed: number;
+}
+
 export async function sendPushNotificationToAll(payload: {
   title: string;
   body: string;
-}): Promise<void> {
+}): Promise<PushResult> {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
     logger.warn("VAPID keys not configured, skipping push notifications");
-    return;
+    return { sent: 0, failed: 0 };
   }
 
-  const { data: subscriptions } = await supabase
+  const { data: subscriptions, error: subsError } = await supabase
     .from("push_subscriptions")
     .select("*");
+
+  if (subsError) {
+    logger.error({ error: subsError }, "Failed to fetch push subscriptions from database");
+    throw new Error(`Database error fetching push subscriptions: ${subsError.message}`);
+  }
 
   const subs = subscriptions ?? [];
   logger.info({ count: subs.length }, "Sending push notifications");
 
   const payloadStr = JSON.stringify(payload);
+  let sent = 0;
+  let failed = 0;
 
   for (const sub of subs) {
     try {
       await trySendNotification(sub, payloadStr);
+      sent++;
     } catch (err: unknown) {
       const statusCode = getStatusCode(err);
 
@@ -143,6 +156,7 @@ export async function sendPushNotificationToAll(payload: {
           .delete()
           .eq("endpoint", sub.endpoint);
       } else {
+        failed++;
         logger.error(
           { endpoint: sub.endpoint, statusCode, err },
           "Failed to send push notification after retries",
@@ -150,6 +164,8 @@ export async function sendPushNotificationToAll(payload: {
       }
     }
   }
+
+  return { sent, failed };
 }
 
 export default router;

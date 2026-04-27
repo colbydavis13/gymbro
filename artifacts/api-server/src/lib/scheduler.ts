@@ -40,6 +40,24 @@ function buildEmailHtml(dailyTime: string): string {
   `.trim();
 }
 
+type RunStatus = "success" | "failed" | "skipped";
+
+interface RunRecord {
+  push_status: RunStatus;
+  push_error: string | null;
+  push_sent: number;
+  push_failed: number;
+  email_status: RunStatus;
+  email_error: string | null;
+}
+
+async function recordRun(record: RunRecord): Promise<void> {
+  const { error } = await supabase.from("scheduler_runs").insert(record);
+  if (error) {
+    logger.error({ error }, "Failed to write scheduler run record");
+  }
+}
+
 export async function startScheduler(): Promise<void> {
   const RESEND_API_KEY = process.env.RESEND_API_KEY;
   const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
@@ -50,11 +68,15 @@ export async function startScheduler(): Promise<void> {
 
   async function checkAndSendReminders(): Promise<void> {
     try {
-      const { data: schedule } = await supabase
+      const { data: schedule, error: scheduleErr } = await supabase
         .from("schedule")
         .select("*")
         .limit(1)
         .maybeSingle();
+
+      if (scheduleErr) {
+        throw new Error(`Database error fetching schedule: ${scheduleErr.message}`);
+      }
 
       if (!schedule) return;
 
@@ -67,26 +89,77 @@ export async function startScheduler(): Promise<void> {
 
       logger.info({ dailyTime: schedule.daily_time }, "Sending daily gym reminders");
 
-      await sendPushNotificationToAll({
-        title: "Gym Bro",
-        body: "Time to decide — will you go to the gym today?",
-      });
+      const run: RunRecord = {
+        push_status: "skipped",
+        push_error: null,
+        push_sent: 0,
+        push_failed: 0,
+        email_status: "skipped",
+        email_error: null,
+      };
+
+      try {
+        const pushResult = await sendPushNotificationToAll({
+          title: "Gym Bro",
+          body: "Time to decide — will you go to the gym today?",
+        });
+        run.push_status = "success";
+        run.push_sent = pushResult.sent;
+        run.push_failed = pushResult.failed;
+        if (pushResult.failed > 0) {
+          run.push_status = pushResult.sent > 0 ? "success" : "failed";
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.error({ err }, "Push notification run failed");
+        run.push_status = "failed";
+        run.push_error = message;
+      }
 
       if (resend && schedule.target_email) {
-        const { error } = await resend.emails.send({
-          from: "Gym Bro <noreply@resend.dev>",
-          to: [schedule.target_email],
-          subject: "Your daily gym reminder",
-          html: buildEmailHtml(schedule.daily_time),
-        });
-        if (error) {
-          logger.error({ error }, "Failed to send daily email");
-        } else {
-          logger.info({ to: schedule.target_email }, "Daily reminder email sent");
+        try {
+          const { error } = await resend.emails.send({
+            from: "Gym Bro <noreply@resend.dev>",
+            to: [schedule.target_email],
+            subject: "Your daily gym reminder",
+            html: buildEmailHtml(schedule.daily_time),
+          });
+          if (error) {
+            logger.error({ error }, "Failed to send daily email");
+            run.email_status = "failed";
+            run.email_error = typeof error === "object" && error !== null && "message" in error
+              ? String((error as { message: unknown }).message)
+              : JSON.stringify(error);
+          } else {
+            logger.info({ to: schedule.target_email }, "Daily reminder email sent");
+            run.email_status = "success";
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          logger.error({ err }, "Email send threw unexpectedly");
+          run.email_status = "failed";
+          run.email_error = message;
         }
+      }
+
+      await recordRun(run);
+
+      const overallOk = run.push_status !== "failed" && run.email_status !== "failed";
+      if (overallOk) {
+        logger.info({ run }, "Daily reminder run completed successfully");
+      } else {
+        logger.error({ run }, "Daily reminder run finished with failures");
       }
     } catch (err) {
       logger.error({ err }, "Error in reminder scheduler");
+      await recordRun({
+        push_status: "failed",
+        push_error: err instanceof Error ? err.message : String(err),
+        push_sent: 0,
+        push_failed: 0,
+        email_status: "failed",
+        email_error: "Scheduler crashed before email step",
+      }).catch(() => {});
     }
   }
 

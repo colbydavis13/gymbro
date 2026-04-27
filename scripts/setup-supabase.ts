@@ -35,6 +35,17 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   auth TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS scheduler_runs (
+  id SERIAL PRIMARY KEY,
+  ran_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  push_status TEXT NOT NULL,
+  push_error TEXT,
+  push_sent INTEGER NOT NULL DEFAULT 0,
+  push_failed INTEGER NOT NULL DEFAULT 0,
+  email_status TEXT NOT NULL,
+  email_error TEXT
+);
 `;
 
 async function setup() {
