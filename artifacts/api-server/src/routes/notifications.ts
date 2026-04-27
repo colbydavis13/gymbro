@@ -54,6 +54,61 @@ router.post("/notifications/subscribe", async (req, res): Promise<void> => {
   res.json(SubscribeNotificationsResponse.parse({ success: true }));
 });
 
+const RETRY_DELAY_MS = 2_000;
+const RETRY_ATTEMPTS = 1;
+
+function getStatusCode(err: unknown): number | undefined {
+  if (err && typeof err === "object" && "statusCode" in err) {
+    return (err as { statusCode: number }).statusCode;
+  }
+  return undefined;
+}
+
+function isTransient(statusCode: number | undefined): boolean {
+  if (statusCode === undefined) return true;
+  if (statusCode === 429) return true;
+  if (statusCode >= 500 && statusCode <= 599) return true;
+  return false;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function trySendNotification(
+  sub: { endpoint: string; p256dh: string; auth: string },
+  payloadStr: string,
+): Promise<void> {
+  let lastErr: unknown;
+
+  for (let attempt = 0; attempt <= RETRY_ATTEMPTS; attempt++) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        payloadStr,
+      );
+      return;
+    } catch (err: unknown) {
+      lastErr = err;
+      const statusCode = getStatusCode(err);
+
+      if (!isTransient(statusCode)) {
+        throw err;
+      }
+
+      if (attempt < RETRY_ATTEMPTS) {
+        logger.warn(
+          { endpoint: sub.endpoint, statusCode, attempt: attempt + 1 },
+          "Transient push notification error — retrying",
+        );
+        await sleep(RETRY_DELAY_MS);
+      }
+    }
+  }
+
+  throw lastErr;
+}
+
 export async function sendPushNotificationToAll(payload: {
   title: string;
   body: string;
@@ -70,26 +125,28 @@ export async function sendPushNotificationToAll(payload: {
   const subs = subscriptions ?? [];
   logger.info({ count: subs.length }, "Sending push notifications");
 
+  const payloadStr = JSON.stringify(payload);
+
   for (const sub of subs) {
     try {
-      await webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        JSON.stringify(payload),
-      );
+      await trySendNotification(sub, payloadStr);
     } catch (err: unknown) {
-      if (
-        err &&
-        typeof err === "object" &&
-        "statusCode" in err &&
-        (err as { statusCode: number }).statusCode === 410
-      ) {
-        logger.info({ endpoint: sub.endpoint }, "Removing expired push subscription");
+      const statusCode = getStatusCode(err);
+
+      if (statusCode === 410) {
+        logger.info(
+          { endpoint: sub.endpoint, statusCode },
+          "Removing expired push subscription",
+        );
         await supabase
           .from("push_subscriptions")
           .delete()
           .eq("endpoint", sub.endpoint);
       } else {
-        logger.error({ err }, "Failed to send push notification");
+        logger.error(
+          { endpoint: sub.endpoint, statusCode, err },
+          "Failed to send push notification after retries",
+        );
       }
     }
   }

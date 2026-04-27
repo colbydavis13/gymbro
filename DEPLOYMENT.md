@@ -112,6 +112,27 @@ The file `artifacts/gym-bro/public/staticwebapp.config.json` configures SPA rout
 
 In the Azure portal, go to your App Service → **API** → **CORS**. Add the URL of your Static Web App (e.g. `https://gym-bro.azurestaticapps.net`) to the Allowed Origins list.
 
+### Step 6: Configure the Health Probe
+
+In the Azure portal, go to your App Service → **Monitoring** → **Health check**. Set the **Path** to `/api/health`.
+
+Azure will poll this endpoint every minute and restart the instance if it stops responding. The endpoint returns a JSON body with `status`, `uptime` (seconds since startup), `startedAt`, and `timestamp` so you can also verify the service is alive from any HTTP client:
+
+```
+GET https://<your-api-app-name>.azurewebsites.net/api/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "ok",
+  "uptime": 3600,
+  "startedAt": "2026-04-27T10:00:00.000Z",
+  "timestamp": "2026-04-27T11:00:00.000Z"
+}
+```
+
 ---
 
 ## Part 3 — Connect a Custom Domain
