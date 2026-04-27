@@ -1,7 +1,9 @@
 # Gym Bro — Azure Deployment Guide
 
-This guide walks through deploying Gym Bro to Microsoft Azure step by step.
-The frontend (React) goes to **Azure Static Web Apps** and the backend (Express API) goes to **Azure App Service**.
+Both the frontend (React) and the backend (Express API) are deployed to **Azure App Service** as Node.js code running on **Node 22**.
+
+- **Frontend App Service** — serves the built React app as static files via a lightweight Node.js server (`server.mjs`)
+- **API App Service** — runs the Express API server
 
 ---
 
@@ -9,191 +11,179 @@ The frontend (React) goes to **Azure Static Web Apps** and the backend (Express 
 
 - A [Microsoft Azure](https://portal.azure.com) account (free tier works)
 - Your code pushed to a **GitHub repository**
-- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) installed (optional but helpful)
+- Both secrets configured in GitHub (see each section below)
 
 ---
 
-## Part 1 — Deploy the Frontend (Azure Static Web Apps)
+## Part 1 — Deploy the Frontend (Azure App Service)
 
-### Step 1: Create a Static Web App resource
+### Step 1: Create the Frontend App Service
 
 1. Go to [portal.azure.com](https://portal.azure.com)
-2. Click **Create a resource** → search for **Static Web Apps** → click **Create**
+2. Click **Create a resource** → search for **Web App** → **Create**
 3. Fill in the basics:
    - **Subscription**: your subscription
    - **Resource Group**: create new, e.g. `gym-bro-rg`
-   - **Name**: `gym-bro` (or any name you like)
-   - **Plan type**: Free
+   - **Name**: `gym-bro-web` (becomes `gym-bro-web.azurewebsites.net`)
+   - **Publish**: Code
+   - **Runtime stack**: Node 22 LTS
+   - **Operating System**: Linux
    - **Region**: East US (or closest to you)
-4. Under **Deployment details**:
-   - **Source**: GitHub
-   - Click **Sign in with GitHub** and authorize Azure
-   - Select your **Organization**, **Repository**, and **Branch** (`main`)
-5. Under **Build Details**:
-   - **Build Preset**: Custom
-   - **App location**: `artifacts/gym-bro/dist/public`
-   - **Api location**: (leave blank)
-   - **Output location**: (leave blank)
-   - Check **Skip build** — the GitHub Actions workflow handles building
-6. Click **Review + create** → **Create**
+   - **Pricing plan**: Free F1
+4. Click **Review + create** → **Create**
 
-Azure will add a deployment token secret to your GitHub repository automatically.
+### Step 2: Configure the startup command
 
-### Step 2: Set environment variables for the frontend build
+1. Go to your new App Service → **Settings** → **Configuration** → **General settings**
+2. Set **Startup Command** to: `node server.mjs`
+3. Click **Save**
 
-In GitHub, go to your repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**. Add these secrets:
+### Step 3: Add GitHub secrets for the frontend
 
-| Secret Name | Value | Description |
-|---|---|---|
-| `AZURE_STATIC_WEB_APPS_API_TOKEN` | (auto-added by Azure) | Azure deployment token |
-| `VITE_GA_MEASUREMENT_ID` | `G-NEFQLYL8YJ` | Google Analytics 4 Measurement ID |
-| `VITE_API_BASE_URL` | `https://<your-api-app-name>.azurewebsites.net` | URL of your deployed API (set after Part 2) |
+In your GitHub repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
 
-### Step 3: Trigger the first deployment
+| Secret Name | How to get it |
+|---|---|
+| `AZURE_FRONTEND_APP_NAME` | The name you chose, e.g. `gym-bro-web` |
+| `AZURE_FRONTEND_PUBLISH_PROFILE` | App Service → **Overview** → **Download publish profile** → paste file contents |
+| `VITE_GA_MEASUREMENT_ID` | `G-NEFQLYL8YJ` — your Google Analytics Measurement ID |
+| `VITE_API_BASE_URL` | `https://gym-bro-api.azurewebsites.net` — the API App Service URL (set after Part 2) |
 
-Push any change to `main` (or run the workflow manually from the **Actions** tab in GitHub). The GitHub Actions workflow will build and deploy the frontend automatically.
+### Step 4: Set environment variables for the frontend
+
+In the Azure portal, go to your frontend App Service → **Settings** → **Environment variables** → **App settings**:
+
+| Variable | Value |
+|---|---|
+| `PORT` | `8080` |
+| `NODE_ENV` | `production` |
 
 ---
 
 ## Part 2 — Deploy the API (Azure App Service)
 
-### Step 1: Create an App Service resource
+### Step 1: Create the API App Service
 
 1. In the Azure portal, click **Create a resource** → search for **Web App** → **Create**
 2. Fill in the basics:
-   - **Subscription**: same subscription
    - **Resource Group**: `gym-bro-rg` (same as above)
-   - **Name**: `gym-bro-api` (must be unique — this becomes `gym-bro-api.azurewebsites.net`)
+   - **Name**: `gym-bro-api` (becomes `gym-bro-api.azurewebsites.net`)
    - **Publish**: Code
    - **Runtime stack**: Node 22 LTS
    - **Operating System**: Linux
-   - **Region**: same region as Static Web App
-   - **Pricing plan**: Free F1 (or Basic B1 for always-on)
+   - **Region**: same region as the frontend
+   - **Pricing plan**: Free F1
 3. Click **Review + create** → **Create**
 
 ### Step 2: Set environment variables for the API
 
-In the Azure portal, go to your App Service → **Settings** → **Environment variables** → **App settings**. Add each variable:
+In the Azure portal, go to your API App Service → **Settings** → **Environment variables** → **App settings**:
 
-| Variable | Value | Required |
+| Variable | Value | Notes |
 |---|---|---|
-| `SUPABASE_URL` | `https://xxxx.supabase.co` | Yes — from Supabase project settings |
-| `SUPABASE_ANON_KEY` | `eyJ...` | Yes — from Supabase project API keys |
-| `RESEND_API_KEY` | `re_...` | Yes — from resend.com dashboard |
-| `TARGET_EMAIL` | `you@example.com` | Yes — email address to receive daily reminders |
-| `VAPID_PUBLIC_KEY` | `BF...` | Yes — your VAPID public key |
-| `VAPID_PRIVATE_KEY` | `...` | Yes — your VAPID private key (keep secret!) |
-| `NODE_ENV` | `production` | Yes |
-| `PORT` | `8080` | Yes — Azure App Service uses 8080 by default |
-| `WEBSITE_RUN_FROM_PACKAGE` | `1` | Yes — required for zip deployment |
-| `ALLOWED_ORIGIN` | `https://<your-static-web-app>.azurestaticapps.net` | Yes — URL of the Azure Static Web Apps frontend; restricts CORS to that origin in production |
+| `SUPABASE_URL` | `https://xxxx.supabase.co` | From Supabase project settings |
+| `SUPABASE_ANON_KEY` | `eyJ...` | From Supabase project API keys |
+| `RESEND_API_KEY` | `re_...` | From resend.com dashboard |
+| `TARGET_EMAIL` | `you@example.com` | Email address for daily reminders |
+| `VAPID_PUBLIC_KEY` | `BF...` | Your VAPID public key |
+| `VAPID_PRIVATE_KEY` | `...` | Your VAPID private key — keep secret |
+| `ALLOWED_ORIGIN` | `https://gym-bro-web.azurewebsites.net` | Your frontend App Service URL |
+| `PORT` | `8080` | Azure App Service default |
+| `NODE_ENV` | `production` | |
+| `WEBSITE_RUN_FROM_PACKAGE` | `1` | Required for zip deployment |
 
 Click **Apply** after adding all variables.
 
-### Step 3: Get the publish profile
+### Step 3: Configure the startup command
 
-1. In your App Service, click **Overview** → **Download publish profile**
-2. Open the downloaded `.PublishSettings` file in a text editor and copy all of its contents
+1. Go to your API App Service → **Settings** → **Configuration** → **General settings**
+2. Set **Startup Command** to: `node --enable-source-maps ./dist/index.mjs`
+3. Click **Save**
 
-In GitHub, add another repository secret:
+### Step 4: Add GitHub secrets for the API
 
-| Secret Name | Value |
+In your GitHub repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
+
+| Secret Name | How to get it |
 |---|---|
-| `AZURE_APP_SERVICE_NAME` | `gym-bro-api` (your App Service name) |
-| `AZURE_APP_SERVICE_PUBLISH_PROFILE` | (paste the full contents of the .PublishSettings file) |
+| `AZURE_API_APP_NAME` | The name you chose, e.g. `gym-bro-api` |
+| `AZURE_API_PUBLISH_PROFILE` | App Service → **Overview** → **Download publish profile** → paste file contents |
 
-### Step 4: Configure the API URL
+### Step 5: Configure API health check
 
-The file `artifacts/gym-bro/public/staticwebapp.config.json` configures SPA routing so all page navigations correctly serve `index.html`. Because Azure Static Web Apps Free tier cannot reverse-proxy to an external backend, API calls go directly from the browser to your App Service.
-
-`artifacts/gym-bro/src/App.tsx` already reads `VITE_API_BASE_URL` and uses it to route API calls to the correct server. Just set the GitHub secret (Part 1, Step 2) to your App Service URL (e.g. `https://gym-bro-api.azurewebsites.net`) and the build handles the rest.
-
-### Step 5: Enable CORS on the API
-
-In the Azure portal, go to your App Service → **API** → **CORS**. Add the URL of your Static Web App (e.g. `https://gym-bro.azurestaticapps.net`) to the Allowed Origins list.
-
-### Step 6: Configure the Health Probe
-
-In the Azure portal, go to your App Service → **Monitoring** → **Health check**. Set the **Path** to `/api/health`.
-
-Azure will poll this endpoint every minute and restart the instance if it stops responding. The endpoint returns a JSON body with `status`, `uptime` (seconds since startup), `startedAt`, and `timestamp` so you can also verify the service is alive from any HTTP client:
-
-```
-GET https://<your-api-app-name>.azurewebsites.net/api/health
-```
-
-Expected response:
-
-```json
-{
-  "status": "ok",
-  "uptime": 3600,
-  "startedAt": "2026-04-27T10:00:00.000Z",
-  "timestamp": "2026-04-27T11:00:00.000Z"
-}
-```
+1. In the Azure portal, go to your API App Service → **Monitoring** → **Health check**
+2. Enable health check and set the path to `/api/health`
+3. Azure will probe this endpoint and restart the service if it stops responding
 
 ---
 
-## Part 3 — Connect a Custom Domain
+## Part 3 — Trigger the CI/CD Pipeline
 
-### Step 1: Add a custom domain in Azure Static Web Apps
+1. Push any commit to the `main` branch (or go to **Actions** in GitHub and click **Run workflow**)
+2. The workflow builds both services and deploys them to their respective App Services
+3. Once complete, visit `https://gym-bro-web.azurewebsites.net` to see the live app
 
-1. In the Azure portal, open your Static Web App → **Custom domains** → **Add**
-2. Select **Custom domain on other DNS** (or Azure DNS if you have a zone)
-3. Enter your domain name (e.g. `gymbro.yourdomain.com`)
-4. Azure will show you a **CNAME value** to add — copy it
+If the first deploy succeeds but the API URL is not yet set, go back to the frontend App Service environment variables and add `VITE_API_BASE_URL` with the API URL, then re-run the workflow.
+
+---
+
+## Part 4 — Connect a Custom Domain
+
+### Step 1: Add a custom domain in Azure
+
+1. In the Azure portal, open your frontend App Service → **Settings** → **Custom domains** → **Add custom domain**
+2. Enter your domain name (e.g. `gymbro.yourdomain.com`)
+3. Azure will show you a **CNAME value** to add in your DNS — copy it
 
 ### Step 2: Configure DNS on Namecheap
 
-1. Log in to [namecheap.com](https://www.namecheap.com) → **Domain List** → click **Manage** next to your domain
-2. Go to the **Advanced DNS** tab
-3. Add a new **CNAME Record**:
-   - **Host**: `gymbro` (or `www` for root)
+1. Log in to [namecheap.com](https://www.namecheap.com) → **Domain List** → **Manage** → **Advanced DNS**
+2. Add a **CNAME Record**:
+   - **Host**: `gymbro` (or `www`)
    - **Value**: paste the CNAME value Azure gave you
    - **TTL**: Automatic
-4. Click the checkmark to save
-
-DNS propagation takes 5–30 minutes. Return to Azure and click **Validate** once DNS has propagated. Azure will automatically provision a free TLS certificate.
+3. Save and wait 5–30 minutes for DNS propagation
+4. Return to Azure and click **Validate** — Azure will provision a free TLS certificate automatically
 
 ---
 
-## Part 4 — Verify the Deployment
+## Part 5 — Verify the Deployment
 
-Once deployed, check the following:
+Once deployed, confirm:
 
-- [ ] Visit your Static Web App URL — the Today's Check-in page loads
-- [ ] Navigate to `/schedule` and `/settings` — no 404 errors (SPA routing works)
-- [ ] Open browser DevTools → Network tab → confirm API calls to `/api/*` return 200
-- [ ] Check Google Analytics Real-time report — page views appear
-- [ ] Submit a check-in (attend/skip) — it persists after page refresh
-- [ ] Change the schedule time → verify the change is saved
-- [ ] Enable push notifications → confirm the browser prompts for permission
+- [ ] Frontend URL loads the Today's Check-in page
+- [ ] `/schedule` and `/settings` routes work without 404 (SPA routing via `server.mjs`)
+- [ ] API calls succeed — attend or skip today, confirm it saves after refresh
+- [ ] Google Analytics Real-time report shows page views
+- [ ] Push notifications prompt works and fires at the scheduled time
+- [ ] Daily email arrives at `TARGET_EMAIL`
 
 ---
 
 ## Environment Variables Reference
 
-| Variable | Where Used | Description |
+| Variable | Used By | Description |
 |---|---|---|
-| `SUPABASE_URL` | API server | Supabase project URL (e.g. `https://xxxx.supabase.co`) |
-| `SUPABASE_ANON_KEY` | API server | Supabase anonymous API key |
-| `RESEND_API_KEY` | API server | Resend API key for sending daily reminder emails |
-| `TARGET_EMAIL` | API server | Email address to receive daily reminder emails |
-| `VAPID_PUBLIC_KEY` | API server | VAPID public key for Web Push (base64url encoded) |
-| `VAPID_PRIVATE_KEY` | API server | VAPID private key for Web Push — **keep secret** |
-| `NODE_ENV` | API server | Set to `production` in Azure |
-| `PORT` | API server | HTTP port — Azure App Service uses `8080` |
-| `VITE_GA_MEASUREMENT_ID` | Frontend build (GitHub secret) | Google Analytics 4 Measurement ID |
-| `VITE_API_BASE_URL` | Frontend build (GitHub secret) | Full URL of the deployed API server |
-| `BASE_PATH` | Frontend build (set in CI) | Base path for the app — set to `/` automatically by the workflow |
-| `ALLOWED_ORIGIN` | API server | Azure Static Web Apps URL (e.g. `https://gym-bro.azurestaticapps.net`) — restricts CORS to this origin in production |
+| `SUPABASE_URL` | API (Azure env var) | Supabase project URL |
+| `SUPABASE_ANON_KEY` | API (Azure env var) | Supabase anonymous key |
+| `RESEND_API_KEY` | API (Azure env var) | Resend key for email |
+| `TARGET_EMAIL` | API (Azure env var) | Recipient of daily reminder emails |
+| `VAPID_PUBLIC_KEY` | API (Azure env var) | Web Push public key |
+| `VAPID_PRIVATE_KEY` | API (Azure env var) | Web Push private key — keep secret |
+| `ALLOWED_ORIGIN` | API (Azure env var) | Frontend URL for CORS |
+| `PORT` | Both (Azure env var) | HTTP port — Azure uses `8080` |
+| `NODE_ENV` | Both (Azure env var) | Set to `production` |
+| `WEBSITE_RUN_FROM_PACKAGE` | API (Azure env var) | Required for zip deploy |
+| `VITE_GA_MEASUREMENT_ID` | Frontend (GitHub secret) | Google Analytics 4 ID |
+| `VITE_API_BASE_URL` | Frontend (GitHub secret) | Full URL of the API App Service |
+| `BASE_PATH` | Frontend (set by CI to `/`) | Vite base path — set automatically |
 
 ---
 
 ## Using the Dockerfile (Optional)
 
-A `Dockerfile` is provided at `artifacts/api-server/Dockerfile` for containerized deployment to Azure Container Apps or any Docker host:
+A `Dockerfile` is provided at `artifacts/api-server/Dockerfile` for containerized deployment.
+To deploy via Docker instead of zip, push the image to Azure Container Registry and configure your App Service to use a container image.
 
 ```bash
 docker build -f artifacts/api-server/Dockerfile -t gym-bro-api .
@@ -203,11 +193,10 @@ docker run -p 8080:8080 \
   -e RESEND_API_KEY=... \
   -e VAPID_PUBLIC_KEY=... \
   -e VAPID_PRIVATE_KEY=... \
+  -e ALLOWED_ORIGIN=https://gym-bro-web.azurewebsites.net \
   -e NODE_ENV=production \
   gym-bro-api
 ```
-
-To deploy the container to Azure Container Apps instead of App Service, push the image to Azure Container Registry and create a Container Apps resource pointing to it.
 
 ---
 

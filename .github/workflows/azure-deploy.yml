@@ -7,14 +7,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-deploy-frontend:
-    name: Build & Deploy Frontend (Azure Static Web Apps)
+  deploy-frontend:
+    name: Build & Deploy Frontend (Azure App Service)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: true
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -40,16 +38,23 @@ jobs:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
         run: pnpm run build
 
-      - name: Deploy to Azure Static Web Apps
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          action: upload
-          app_location: artifacts/gym-bro/dist/public
-          skip_app_build: true
+      - name: Package frontend for deployment
+        run: |
+          mkdir -p frontend-package
+          cp -r artifacts/gym-bro/dist/public frontend-package/public
+          cp artifacts/gym-bro/server.mjs frontend-package/server.mjs
+          printf '{"name":"gym-bro-frontend","version":"1.0.0","private":true,"type":"module","engines":{"node":">=22"},"scripts":{"start":"node server.mjs"}}' \
+            > frontend-package/package.json
+          cd frontend-package && zip -r ../frontend-deploy.zip .
 
-  build-and-deploy-api:
+      - name: Deploy to Azure App Service (Frontend)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_FRONTEND_APP_NAME }}
+          publish-profile: ${{ secrets.AZURE_FRONTEND_PUBLISH_PROFILE }}
+          package: frontend-deploy.zip
+
+  deploy-api:
     name: Build & Deploy API (Azure App Service)
     runs-on: ubuntu-latest
     steps:
@@ -77,13 +82,13 @@ jobs:
         run: |
           mkdir -p api-package
           cp -r artifacts/api-server/dist api-package/dist
-          printf '{"name":"gym-bro-api","version":"1.0.0","private":true,"scripts":{"start":"node --enable-source-maps ./dist/index.mjs"}}' \
+          printf '{"name":"gym-bro-api","version":"1.0.0","private":true,"type":"module","engines":{"node":">=22"},"scripts":{"start":"node --enable-source-maps ./dist/index.mjs"}}' \
             > api-package/package.json
           cd api-package && zip -r ../api-deploy.zip .
 
-      - name: Deploy to Azure App Service
+      - name: Deploy to Azure App Service (API)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_APP_SERVICE_NAME }}
-          publish-profile: ${{ secrets.AZURE_APP_SERVICE_PUBLISH_PROFILE }}
+          app-name: ${{ secrets.AZURE_API_APP_NAME }}
+          publish-profile: ${{ secrets.AZURE_API_PUBLISH_PROFILE }}
           package: api-deploy.zip
