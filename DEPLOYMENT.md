@@ -86,6 +86,7 @@ In the Azure portal, go to your App Service → **Settings** → **Environment v
 | `NODE_ENV` | `production` | Yes |
 | `PORT` | `8080` | Yes — Azure App Service uses 8080 by default |
 | `WEBSITE_RUN_FROM_PACKAGE` | `1` | Yes — required for zip deployment |
+| `ALLOWED_ORIGIN` | `https://<your-static-web-app>.azurestaticapps.net` | Yes — URL of the Azure Static Web Apps frontend; restricts CORS to that origin in production |
 
 Click **Apply** after adding all variables.
 
@@ -165,6 +166,7 @@ Once deployed, check the following:
 | `VITE_GA_MEASUREMENT_ID` | Frontend build (GitHub secret) | Google Analytics 4 Measurement ID |
 | `VITE_API_BASE_URL` | Frontend build (GitHub secret) | Full URL of the deployed API server |
 | `BASE_PATH` | Frontend build (set in CI) | Base path for the app — set to `/` automatically by the workflow |
+| `ALLOWED_ORIGIN` | API server | Azure Static Web Apps URL (e.g. `https://gym-bro.azurestaticapps.net`) — restricts CORS to this origin in production |
 
 ---
 

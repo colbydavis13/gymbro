@@ -25,7 +25,20 @@ app.use(
     },
   }),
 );
-app.use(cors());
+let corsOptions: Parameters<typeof cors>[0];
+if (process.env.NODE_ENV === "production") {
+  if (process.env.ALLOWED_ORIGIN) {
+    corsOptions = { origin: process.env.ALLOWED_ORIGIN };
+  } else {
+    logger.warn(
+      "ALLOWED_ORIGIN is not set in production — cross-origin requests will be denied",
+    );
+    corsOptions = { origin: false };
+  }
+} else {
+  corsOptions = {};
+}
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
