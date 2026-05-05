@@ -44,11 +44,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
-const __filename = fileURLToPath(import.meta.url); 
-const __dirname = path.dirname(__filename); 
-// Serve React static files 
-app.use(express.static(path.join(__dirname, "../../public"))); 
-// Catch-all: send index.html for any non-API route (supports React Router) 
-app.get("{*path}", (_req, res) => { res.sendFile(path.join(__dirname, "../../public", "index.html")); });
+
+const publicDir = path.resolve(process.cwd(), "public");
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+  app.get("{*path}", (_req, res) => {
+    res.sendFile(path.join(publicDir, "index.html"));
+  });
+}
+
+export default app;
+
+
 
 export default app;
