@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { fileURLToPath } from "url"; 
+import fs from "fs";
 import path from "path";
 const app: Express = express();
 
@@ -52,9 +53,5 @@ if (fs.existsSync(publicDir)) {
     res.sendFile(path.join(publicDir, "index.html"));
   });
 }
-
-export default app;
-
-
 
 export default app;
