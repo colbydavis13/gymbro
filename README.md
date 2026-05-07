@@ -5,3 +5,4 @@ By Colby Davis
 sfdgckdfwkf
 new line
 updated
+updated for Google Analytics
